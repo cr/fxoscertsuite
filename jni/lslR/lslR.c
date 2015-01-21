@@ -6,7 +6,11 @@
 #include <dirent.h>
 #include <limits.h>
 
-void lslR(const char * dirname) {
+void justprint(const char * name) {
+	printf( "%s\n", name); 
+}
+
+void recurse_dir(const char * dirname, void (* cb)(const char *)) {
 	DIR * dir = opendir(dirname);
 	int is_root = strcmp(dirname, "/") == 0;
 	if(!dir) {
@@ -18,16 +22,14 @@ void lslR(const char * dirname) {
 		if(!dentry) break;
 		if(strcmp(dentry->d_name, ".") == 0) continue;
 		if(strcmp(dentry->d_name, "..") == 0) continue;
-		printf( "%s/%s\n", is_root?"":dirname, dentry->d_name); 
-		if(dentry->d_type & DT_DIR) {
-			char subdir[PATH_MAX];
-			if(strlen(dirname) + strlen(dentry->d_name) + 1 > PATH_MAX) {
-				fprintf(stderr, "PATH_MAX exceeded for directory %s/%s\n", is_root?"":dirname, dentry->d_name);
-			} else {
-				snprintf(subdir, PATH_MAX, "%s/%s", is_root?"":dirname, dentry->d_name);
-				lslR(subdir);
-			}
+		if(strlen(dirname) + strlen(dentry->d_name) + 2 >= PATH_MAX) {
+			fprintf(stderr, "PATH_MAX exceeded for directory %s/%s\n", is_root?"":dirname, dentry->d_name);
+			continue;
 		}
+		char fullname[PATH_MAX];
+		snprintf(fullname, PATH_MAX, "%s/%s", is_root?"":dirname, dentry->d_name);
+		cb(fullname);
+		if(dentry->d_type & DT_DIR) recurse_dir(fullname, cb);
 	}
 	if(closedir(dir)) {
 		fprintf(stderr, "Cannot close directory %s: %s\n", dirname, strerror(errno));
@@ -36,6 +38,6 @@ void lslR(const char * dirname) {
 }
 
 int main() {
-	lslR("/");
+	recurse_dir("/", justprint);
 	return 0;
 }
